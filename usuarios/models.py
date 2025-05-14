@@ -45,6 +45,7 @@ class Usuario(AbstractUser):
     TIPO_USUARIO_CHOICES = [
         ('admin', 'Administrador'),
         ('prof', 'Profesor'),
+        ('alum', 'Alumno'),
     ]
     nombre = models.CharField(max_length=50)
     apellidos = models.CharField(max_length=100)

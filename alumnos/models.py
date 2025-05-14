@@ -1,17 +1,13 @@
 from django.db import models
-from usuarios.models import Direccion
-
-
-class Alumno(models.Model):
-    nombre = models.CharField(max_length=50)
-    apellidos = models.CharField(max_length=100)
-    direccion = models.OneToOneField(Direccion, on_delete=models.SET_NULL, null=True)
-
-    def __str__(self):
-        return f"{self.nombre} {self.apellidos}"
+from usuarios.models import Direccion, Usuario
 
 class Matricula(models.Model):
-    alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE)
+    alumno = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        limit_choices_to={'tipo_usuario': 'alum'},
+        related_name='matriculas'
+    )
     fecha = models.DateField(auto_now_add=True)
 
     def __str__(self):
@@ -42,7 +38,6 @@ class MateriasInscritasGestion(models.Model):
 
 class Participacion(models.Model):
     ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
-    ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
     materia = models.ForeignKey('materias.Materia', on_delete=models.CASCADE)
     curso = models.ForeignKey('materias.Curso', on_delete=models.CASCADE)
     gestion = models.ForeignKey('materias.Gestion', on_delete=models.CASCADE)
@@ -51,7 +46,6 @@ class Participacion(models.Model):
 
 
 class Asistencia(models.Model):
-    ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
     ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
     materia = models.ForeignKey('materias.Materia', on_delete=models.CASCADE)
     curso = models.ForeignKey('materias.Curso', on_delete=models.CASCADE)
