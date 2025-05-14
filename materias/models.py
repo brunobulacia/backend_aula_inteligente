@@ -1,5 +1,5 @@
 from django.db import models
-from alumnos.models import Nota
+
 
 class Materia(models.Model):
     nombre = models.CharField(max_length=100)
@@ -41,7 +41,8 @@ class MateriaGestionCurso(models.Model):
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
     gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
-    nota = models.ForeignKey(Nota, on_delete=models.SET_NULL, null=True, blank=True)
+    nota = models.ForeignKey('alumnos.Nota', on_delete=models.SET_NULL, null=True, blank=True)
+
 
     class Meta:
         unique_together = ('materia', 'curso', 'gestion')

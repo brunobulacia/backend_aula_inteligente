@@ -17,7 +17,7 @@ class UsuarioManager(BaseUserManager):
         if not nombre:
             raise ValueError("El usuario debe tener un nombre")
         if not correo:
-            raise ValueError("El usuario debe tener un correo")
+            raise ValueError("El usuario debe tener un email")
         if not apellidos:
             raise ValueError("El usuario debe tener apellidos registrados")
         user = self.model(
@@ -41,6 +41,7 @@ class UsuarioManager(BaseUserManager):
         return self.get(correo=correo)
 
 class Usuario(AbstractUser):
+    username = None
     TIPO_USUARIO_CHOICES = [
         ('admin', 'Administrador'),
         ('prof', 'Profesor'),
