@@ -1,0 +1,59 @@
+from django.db import models
+from usuarios.models import Direccion
+from materias.models import Materia, Curso, Gestion
+
+
+class Alumno(models.Model):
+    nombre = models.CharField(max_length=50)
+    apellidos = models.CharField(max_length=100)
+    direccion = models.OneToOneField(Direccion, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellidos}"
+
+class Matricula(models.Model):
+    alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE)
+    fecha = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.alumno}"
+
+
+class FichaInscripcion(models.Model):
+    matricula = models.ForeignKey(Matricula, on_delete=models.CASCADE)
+
+class Nota(models.Model):
+    nota1 = models.FloatField()
+    nota2 = models.FloatField()
+    nota_final = models.FloatField()
+
+class MateriasInscritasGestion(models.Model):
+    ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
+    curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
+    gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
+    nota = models.ForeignKey(Nota, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        unique_together = ('ficha', 'materia', 'curso', 'gestion')
+
+    def __str__(self):
+        return f"{self.ficha} inscrita a {self.materia}-{self.curso}-{self.gestion}"
+
+
+class Participacion(models.Model):
+    ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
+    curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
+    gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
+    fecha = models.DateField()
+    descripcion = models.TextField()
+
+
+class Asistencia(models.Model):
+    ficha = models.ForeignKey(FichaInscripcion, on_delete=models.CASCADE)
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
+    curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
+    gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
+    fecha = models.DateField()
+    asistio = models.BooleanField()
