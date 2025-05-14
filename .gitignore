@@ -1,0 +1,35 @@
+# Entorno virtual
+venv/
+.env/
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.env
+*.venv
+.env/
+.venv/
+env/
+venv/
+ENV/
+
+*.sqlite3
+*.db
+
+.vscode/
+.idea/
+.DS_Store (macOS)
+
+*.egg-info/
+dist/
+build/
+
+
+staticfiles/
+media/
+static/
+
+# Archivos de migraciones innecesarias
+*/migrations/__pycache__/
+*/migrations/*.pyc
