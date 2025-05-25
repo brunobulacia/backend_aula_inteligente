@@ -24,25 +24,34 @@ class Gestion(models.Model):
 
 
 class Horario(models.Model):
-    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
-    curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
-    gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
-    dia = models.CharField(max_length=10) 
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
 
-    class Meta:
-        unique_together = ('materia', 'curso', 'gestion')
+    def __str__(self):
+        return f"{self.hora_inicio}-{self.hora_fin}"
+
+class Dia(models.Model):
+    dia = models.CharField(max_length=15)
 
     def __str__(self):
-        return f"{self.materia} - {self.dia} {self.hora_inicio}-{self.hora_fin}"
+        return self.dia
+    
+class Dia_Horario(models.Model):
+    dia = models.ForeignKey(Dia, on_delete=models.CASCADE)
+    horario = models.ForeignKey(Horario, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('dia', 'horario')
+
+    def __str__(self):
+        return f"{self.dia} - {self.horario}"
+
 
 class MateriaGestionCurso(models.Model):
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
     gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
-    nota = models.ForeignKey('alumnos.Nota', on_delete=models.SET_NULL, null=True, blank=True)
-
+    horario = models.ForeignKey(Horario, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         unique_together = ('materia', 'curso', 'gestion')
