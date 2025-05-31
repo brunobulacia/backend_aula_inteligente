@@ -1,4 +1,5 @@
 from django.db import models
+from usuarios.models import Usuario
 
 
 class Materia(models.Model):
@@ -52,6 +53,7 @@ class MateriaGestionCurso(models.Model):
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
     gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
     horario = models.ForeignKey(Horario, on_delete=models.CASCADE, null=True, blank=True)
+    profesor = models.ForeignKey(Usuario, on_delete=models.CASCADE,limit_choices_to={'tipo_usuario': 'prof'})
 
     class Meta:
         unique_together = ('materia', 'curso', 'gestion')

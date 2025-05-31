@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import Usuario, Direccion
 from .serializers import UsuarioSerializer
 
+#admin
 
 @api_view(['POST'])
 def register(request):
@@ -37,3 +38,6 @@ def login(request):
     serializer = UsuarioSerializer(instance=user)
 
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
+
+#prof
+
