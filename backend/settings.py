@@ -42,9 +42,11 @@ INSTALLED_APPS = [
     'usuarios',
     'alumnos',
     'materias',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # 👈 ESTE VA PRIMERO
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -104,6 +106,13 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:4200'
+]
+
+ALLOWED_HOSTS = ['*']
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
