@@ -38,6 +38,9 @@ class MateriaGestionCursoSerializer(serializers.ModelSerializer):
     profesor_nombre = serializers.CharField(source='profesor.nombre', read_only=True)
     gestion_periodo = serializers.CharField(source='gestion.periodo', read_only=True)
     
+    dia_horarios = serializers.PrimaryKeyRelatedField(
+        queryset=Dia_Horario.objects.all(), many=True
+    )
     
     class Meta:
         model = MateriaGestionCurso

@@ -52,7 +52,7 @@ class MateriaGestionCurso(models.Model):
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE)
     gestion = models.ForeignKey(Gestion, on_delete=models.CASCADE)
-    horario = models.ForeignKey(Horario, on_delete=models.CASCADE, null=True, blank=True)
+    dia_horarios = models.ManyToManyField(Dia_Horario, blank=True)
     profesor = models.ForeignKey(Usuario, on_delete=models.CASCADE,limit_choices_to={'tipo_usuario': 'prof'})
 
     class Meta:

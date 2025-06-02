@@ -23,11 +23,22 @@ class UsuarioSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         direccion_data = validated_data.pop('direccion')
         direccion = Direccion.objects.create(**direccion_data)
-        if 'password' in validated_data:
-            validated_data['password'] = make_password(validated_data['password'])
 
+        password = validated_data.pop('password', None)
         validated_data['direccion'] = direccion
-        return super().create(validated_data)
+
+        user = Usuario(**validated_data)
+
+        if password:
+            user.set_password(password)
+
+        if user.tipo_usuario == 'admin':
+            user.is_staff = True
+            user.is_superuser = True
+
+        user.save()
+        return user
+
 
     def validate_email(self, value):
         user = getattr(self, 'instance', None)
