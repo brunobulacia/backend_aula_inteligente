@@ -2,12 +2,13 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework import status, viewsets
 from django.utils import timezone
 from .models import Usuario, Direccion
+from alumnos.models import MateriasInscritasGestion
 from .serializers import UsuarioSerializer
 
 #admin
@@ -39,5 +40,27 @@ def login(request):
 
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
-#prof
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def obtener_usuarios(request):
+    tipo = request.query_params.get('tipo')
 
+    if tipo:
+        usuarios = Usuario.objects.filter(tipo_usuario=tipo)
+    else:
+        usuarios = Usuario.objects.all()
+    serializer = UsuarioSerializer(usuarios, many = True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def alumnos_por_gestion(request):
+    gestion_id = request.query_params.get('gestion_id')
+
+    if not gestion_id:
+        return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
+    inscritos = MateriasInscritasGestion.objects.filter(gestion_id=gestion_id)
+    alumnos = list(set(mi.ficha.matricula.alumno for mi in inscritos))
+    serializer = UsuarioSerializer(alumnos, many=True)
+    return Response(serializer.data)
