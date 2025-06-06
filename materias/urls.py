@@ -9,6 +9,7 @@ router.register('horarios', views.HorarioViewSet)
 router.register('dias', views.DiaViewSet)
 router.register('dia-horarios', views.DiaHorarioViewSet)
 router.register('asignaciones', views.MateriaGestionCursoViewSet)
+router.register('gestion-curso', views.GestionCursoViewSet)
 
 
 urlpatterns = router.urls

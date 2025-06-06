@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Curso, Materia, Horario, Dia, Dia_Horario, Gestion, MateriaGestionCurso
+from .models import Curso, Materia, Horario, Dia, Dia_Horario, Gestion, MateriaGestionCurso, GestionCurso
 
 class CursoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +16,13 @@ class GestionSerializer(serializers.ModelSerializer):
         model = Gestion
         fields = '__all__'
 
+class GestionCursoSerializer(serializers.ModelSerializer):
+    gestion_periodo = serializers.CharField(source='gestion.periodo', read_only=True)
+    curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
+
+    class Meta:
+        model = GestionCurso
+        fields = ['id', 'gestion', 'curso', 'gestion_periodo', 'curso_nombre']
 
 class HorarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,9 +41,9 @@ class DiaHorarioSerializer(serializers.ModelSerializer):
 
 class MateriaGestionCursoSerializer(serializers.ModelSerializer):
     materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
-    curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
+    curso_nombre = serializers.CharField(source='gestion_curso.curso.nombre', read_only=True)
     profesor_nombre = serializers.CharField(source='profesor.nombre', read_only=True)
-    gestion_periodo = serializers.CharField(source='gestion.periodo', read_only=True)
+    gestion_periodo = serializers.CharField(source='gestion_curso.gestion.periodo', read_only=True)
     
     dia_horarios = serializers.PrimaryKeyRelatedField(
         queryset=Dia_Horario.objects.all(), many=True

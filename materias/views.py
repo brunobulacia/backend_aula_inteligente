@@ -1,11 +1,11 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
-from .models import Curso,Materia, Gestion, Horario, Dia, Dia_Horario, MateriaGestionCurso
+from .models import Curso,Materia, Gestion, Horario, Dia, Dia_Horario, MateriaGestionCurso, GestionCurso
 from .serializers import (
     CursoSerializer, MateriaSerializer, GestionSerializer,
     HorarioSerializer, DiaSerializer, DiaHorarioSerializer,
-    MateriaGestionCursoSerializer
+    MateriaGestionCursoSerializer, GestionCursoSerializer
 )
 
 
@@ -23,6 +23,11 @@ class MateriaViewSet(viewsets.ModelViewSet):
 class GestionViewSet(viewsets.ModelViewSet):
     queryset = Gestion.objects.all()
     serializer_class = GestionSerializer
+    permission_classes = [IsAdminUser]
+
+class GestionCursoViewSet(viewsets.ModelViewSet):
+    queryset = GestionCurso.objects.all()
+    serializer_class = GestionCursoSerializer
     permission_classes = [IsAdminUser]
 
 class HorarioViewSet(viewsets.ModelViewSet):
