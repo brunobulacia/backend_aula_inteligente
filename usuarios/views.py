@@ -9,7 +9,7 @@ from rest_framework import status, viewsets
 from django.utils import timezone
 from .models import Usuario, Direccion
 from alumnos.models import MateriasInscritasGestion
-from .serializers import UsuarioSerializer
+from .serializers import UsuarioSerializer, DireccionSerializer
 
 #admin
 
@@ -64,3 +64,20 @@ def alumnos_por_gestion(request):
     alumnos = list(set(mi.ficha.matricula.alumno for mi in inscritos))
     serializer = UsuarioSerializer(alumnos, many=True)
     return Response(serializer.data)
+
+
+# ENDPOINTS GENERICOS
+class UsuarioViewSet(viewsets.ModelViewSet):
+    queryset = Usuario.objects.all()
+    serializer_class = UsuarioSerializer
+    permission_classes = [IsAdminUser, IsAuthenticated]
+
+
+class DireccionViewSet(viewsets.ModelViewSet):
+    queryset = Direccion.objects.all()
+    serializer_class = DireccionSerializer
+    permission_classes = [IsAdminUser, IsAuthenticated]
+
+
+    
+
