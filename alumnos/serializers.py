@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from usuarios.models import Usuario
 from .models import Matricula, FichaInscripcion, Nota, Asistencia, MateriasInscritasGestion, Participacion
-from materias.models import Materia, Curso, Gestion
+from materias.models import Materia, GestionCurso
 
 class FichaInscripcionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,15 +29,13 @@ class InscripcionSerializer(serializers.Serializer):
 
         for item in materias_data:
             materia = Materia.objects.get(id=item['materia_id'])
-            curso = Curso.objects.get(id=item['curso_id'])
-            gestion = Gestion.objects.get(id=item['gestion_id'])
+            gestion_curso = GestionCurso.objects.get(id=item['gestion_curso_id'])
             nota = Nota.objects.create(nota1=0, nota2=0, nota_final=0)
 
             MateriasInscritasGestion.objects.get_or_create(
                 ficha=ficha,
                 materia=materia,
-                curso=curso,
-                gestion=gestion,
+                gestion_curso=gestion_curso,
                 defaults={'nota': nota}
             ) 
 
@@ -50,8 +48,8 @@ class NotaSerializer(serializers.ModelSerializer):
 
 class MateriasInscritasGestionSerializer(serializers.ModelSerializer):
     materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
-    curso_nombre = serializers.CharField(source='curso.nombre',read_only=True)
-    periodo = serializers.CharField(source='gestion.periodo', read_only=True)
+    curso_nombre = serializers.CharField(source='gestion_curso.curso.nombre',read_only=True)
+    periodo = serializers.CharField(source='gestion_curso.gestion.periodo', read_only=True)
     nota = NotaSerializer(read_only=True)
 
     class Meta:

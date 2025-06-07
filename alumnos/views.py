@@ -115,8 +115,7 @@ class ProfesorViewSet(viewsets.ViewSet):
 
         materias_inscritas = MateriasInscritasGestion.objects.filter(
             materia=mgc.materia,
-            curso=mgc.curso,
-            gestion=mgc.gestion
+            gestion_curso=mgc.gestion_curso
         )
 
         alumnos = [mi.ficha.matricula.alumno for mi in materias_inscritas]
