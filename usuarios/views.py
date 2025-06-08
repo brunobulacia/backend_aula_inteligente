@@ -66,6 +66,14 @@ def alumnos_por_gestion(request):
     return Response(serializer.data)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def obtener_profesores(request):
+    profesores = Usuario.objects.filter(tipo_usuario='prof')
+    serializer = UsuarioSerializer(profesores, many=True)
+    return Response(serializer.data)
+
+
 # ENDPOINTS GENERICOS
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()

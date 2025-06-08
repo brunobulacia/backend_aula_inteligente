@@ -12,5 +12,6 @@ urlpatterns = [
     path('login/', views.login),
     path('listar/', views.obtener_usuarios),
     path('alumnos/', views.alumnos_por_gestion),
+    path('profesores/', views.obtener_profesores, name='obtener_profesores'),
     path('', include(router.urls)),
 ]
