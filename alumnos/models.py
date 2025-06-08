@@ -17,10 +17,13 @@ class Matricula(models.Model):
 
 class FichaInscripcion(models.Model):
     matricula = models.ForeignKey(Matricula, on_delete=models.CASCADE)
+    fecha_inscripcion = models.DateField(auto_now_add=True)
 
 class Nota(models.Model):
-    nota1 = models.FloatField()
-    nota2 = models.FloatField()
+    ser = models.FloatField()
+    saber = models.FloatField()
+    hacer = models.FloatField()
+    decidir = models.FloatField()
     nota_final = models.FloatField()
 
 class MateriasInscritasGestion(models.Model):
