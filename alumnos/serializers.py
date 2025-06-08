@@ -47,14 +47,23 @@ class NotaSerializer(serializers.ModelSerializer):
         fields = ['ser','saber','hacer','decidir','nota_final']
 
 class MateriasInscritasGestionSerializer(serializers.ModelSerializer):
+    materia_id = serializers.IntegerField(source='materia.id', read_only=True)
     materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
+    gestion_curso_id = serializers.IntegerField(source='gestion_curso.id', read_only=True)
     curso_nombre = serializers.CharField(source='gestion_curso.curso.nombre',read_only=True)
     periodo = serializers.CharField(source='gestion_curso.gestion.periodo', read_only=True)
     nota = NotaSerializer(read_only=True)
 
     class Meta:
         model = MateriasInscritasGestion
-        fields = ['materia_nombre', 'curso_nombre', 'periodo', 'nota']
+        fields = [
+            'materia_id',
+            'materia_nombre',
+            'gestion_curso_id',
+            'curso_nombre',
+            'periodo',
+            'nota'
+        ]
 
 
 #calificar para el profesor 
@@ -86,3 +95,9 @@ class ParticipacionSerializer(serializers.Serializer):
     gestion_curso_id = serializers.IntegerField()
     fecha = serializers.DateField()
     descripcion = serializers.CharField()
+
+
+class ConsultaNotaSerializer(serializers.Serializer):
+    alumno_id = serializers.IntegerField()
+    materia_id = serializers.IntegerField()
+    gestion_curso_id = serializers.IntegerField()

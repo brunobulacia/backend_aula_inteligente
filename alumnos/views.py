@@ -310,6 +310,125 @@ class ProfesorViewSet(viewsets.ViewSet):
         ]
 
         return Response(resultado, status=200)
+    
+    @action(detail=False, methods=['get'], url_path='ver-nota')
+    def ver_nota(self, request):
+        alumno_id = request.query_params.get('alumno_id')
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        if not (alumno_id and materia_id and gestion_curso_id):
+            return Response({"error": "Faltan parámetros requeridos"}, status=400)
+
+        try:
+            alumno = Usuario.objects.get(id=alumno_id, tipo_usuario='alum')
+            matricula = Matricula.objects.get(alumno=alumno)
+            ficha = FichaInscripcion.objects.get(matricula=matricula)
+            materia_inscrita = MateriasInscritasGestion.objects.get(
+                ficha=ficha,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+
+            nota = materia_inscrita.nota
+            data = {
+                "ser": nota.ser,
+                "saber": nota.saber,
+                "hacer": nota.hacer,
+                "decidir": nota.decidir,
+                "nota_final": nota.nota_final
+            }
+            return Response(data, status=200)
+
+        except Usuario.DoesNotExist:
+            return Response({"error": "Alumno no encontrado."}, status=404)
+        except MateriasInscritasGestion.DoesNotExist:
+            return Response({"error": "El alumno no está inscrito en esa materia."}, status=404)
+        except Exception as e:
+            return Response({"error": "Error inesperado."}, status=500)
 
 
+#vistas para alumnos
+class EsAlumno(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.tipo_usuario == 'alum'
+    
+class AlumnoViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, EsAlumno]
 
+    @action(detail=False, methods=['get'], url_path='mis-materias')
+    def mis_materias(self, request):
+        alumno = request.user
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            materias = MateriasInscritasGestion.objects.filter(ficha=ficha)
+            serializer = MateriasInscritasGestionSerializer(materias, many=True)
+            return Response(serializer.data)
+        except:
+            return Response({"error": "No estás inscrito en ninguna materia."}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='mis-notas')
+    def ver_nota_materia(self, request):
+        alumno = request.user
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            materia_inscrita = MateriasInscritasGestion.objects.get(
+                ficha=ficha,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+            nota = materia_inscrita.nota
+            return Response({
+            "ser": nota.ser,
+            "saber": nota.saber,
+            "hacer": nota.hacer,
+            "decidir": nota.decidir,
+            "nota_final": nota.nota_final
+            })
+        except:
+            return Response({"error": "No se encontró la nota para esta materia."}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='mis-asistencias')
+    def ver_asistencias(self, request):
+        alumno = request.user
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            asistencias = Asistencia.objects.filter(
+                ficha=ficha,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+            data = [
+                {"fecha": a.fecha, "asistio": a.asistio}
+                for a in asistencias
+            ]
+            return Response(data)
+        except:
+            return Response({"error": "No se encontraron asistencias."}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='mis-participaciones')
+    def ver_participaciones(self, request):
+        alumno = request.user
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            participaciones = Participacion.objects.filter(
+                ficha=ficha,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+            data = [
+                {"fecha": p.fecha, "descripcion": p.descripcion}
+                for p in participaciones
+            ]
+            return Response(data)
+        except:
+            return Response({"error": "No se encontraron participaciones."}, status=404)
