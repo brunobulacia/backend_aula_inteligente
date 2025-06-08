@@ -75,10 +75,9 @@ class CalificacionSerializer(serializers.Serializer):
     saber = serializers.FloatField(required=False)
     hacer = serializers.FloatField(required=False)
     decidir = serializers.FloatField(required=False)
-    nota_final = serializers.FloatField(required=False)
 
     def validate(self, data):
-        if not any([data.get('ser'), data.get('saber'), data.get('hacer'), data.get('decidir'), data.get('nota_final')]):
+        if not any([data.get('ser'), data.get('saber'), data.get('hacer'), data.get('decidir')]):
             raise serializers.ValidationError("Debés enviar al menos una nota.")
         return data
 
@@ -101,3 +100,11 @@ class ConsultaNotaSerializer(serializers.Serializer):
     alumno_id = serializers.IntegerField()
     materia_id = serializers.IntegerField()
     gestion_curso_id = serializers.IntegerField()
+
+class PrediccionRendimientoSerializer(serializers.Serializer):
+    ser = serializers.FloatField()
+    saber = serializers.FloatField()
+    hacer = serializers.FloatField()
+    decidir = serializers.FloatField()
+    asistencia = serializers.IntegerField()
+    participacion = serializers.IntegerField()

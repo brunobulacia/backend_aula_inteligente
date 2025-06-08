@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.utils import timezone
 from rest_framework import viewsets, status, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission, IsAuthenticated
 from rest_framework.decorators import action
@@ -6,9 +7,11 @@ from rest_framework.response import Response
 from .models import FichaInscripcion, MateriasInscritasGestion, Nota, Asistencia, Participacion, Matricula
 from materias.models import MateriaGestionCurso
 from usuarios.models import Usuario
-from .serializers import FichaInscripcionSerializer, InscripcionSerializer, MateriasInscritasGestionSerializer, NotaSerializer, AsistenciaSerializer, ParticipacionSerializer, CalificacionSerializer
+from .serializers import FichaInscripcionSerializer, InscripcionSerializer, MateriasInscritasGestionSerializer, NotaSerializer, AsistenciaSerializer, ParticipacionSerializer, CalificacionSerializer, PrediccionRendimientoSerializer
 from usuarios.serializers import UsuarioSerializer
 from materias.serializers import MateriaGestionCursoSerializer
+from .ml.ml_utils import entrenar_modelo_rendimiento, predecir_rendimiento_grupal, predecir_rendimiento_individual
+
 
 class FichaInscripcionViewSet(viewsets.ModelViewSet):
     queryset = FichaInscripcion.objects.all()
@@ -170,10 +173,8 @@ class ProfesorViewSet(viewsets.ViewSet):
             nota.hacer = data['hacer']
         if data.get('decidir') is not None:
             nota.decidir = data['decidir']
-        if data.get('nota_final') is not None:
-            nota.nota_final = data['nota_final']
+        nota.nota_final = (nota.ser or 0) + (nota.saber or 0) + (nota.hacer or 0) + (nota.decidir or 0)
         nota.save()
-
         return Response({"mensaje": "Nota actualizada correctamente."})
     
     @action(detail=False, methods=['POST'], url_path='registrar-asistencia')
@@ -347,6 +348,48 @@ class ProfesorViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({"error": "Error inesperado."}, status=500)
 
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        profe = request.user
+        materias = MateriaGestionCurso.objects.filter(profesor=profe)
+
+        total_materias = materias.count()
+
+        total_alumnos = 0
+        gestion_curso_ids = []
+        for m in materias:
+            gestion_curso_ids.append(m.gestion_curso.id)
+            inscritos = MateriasInscritasGestion.objects.filter(gestion_curso=m.gestion_curso).count()
+            total_alumnos += inscritos
+
+        hoy = timezone.now().date()
+        asistencias_hoy = Asistencia.objects.filter(gestion_curso_id__in=gestion_curso_ids, fecha=hoy).count()
+        participaciones_total = Participacion.objects.filter(gestion_curso_id__in=gestion_curso_ids).count()
+
+
+        return Response({
+            "total_materias": total_materias,
+            "total_alumnos": total_alumnos,
+            "asistencias_hoy": asistencias_hoy,
+            "participaciones_total": participaciones_total
+        })
+
+    @action(detail=False, methods=['get'], url_path='entrenar-modelo')
+    def entrenar_modelo(self, request):
+        try:
+            ruta = entrenar_modelo_rendimiento()
+            return Response({"mensaje": "Modelo entrenado y guardado exitosamente", "ruta": ruta})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+    
+    @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
+    def predecir_rendimiento(self, request):
+        profesor = request.user
+        resultados = predecir_rendimiento_grupal(profesor)
+        return Response(resultados)
+
+    
+
 
 #vistas para alumnos
 class EsAlumno(BasePermission):
@@ -432,3 +475,46 @@ class AlumnoViewSet(viewsets.ViewSet):
             return Response(data)
         except:
             return Response({"error": "No se encontraron participaciones."}, status=404)
+        
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        alumno = request.user
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
+
+            total_materias = materias_inscritas.count()
+
+            total_participaciones = Participacion.objects.filter(ficha=ficha).count()
+            total_asistencias = Asistencia.objects.filter(ficha=ficha).count()
+
+            promedio_general = 0
+            suma_notas = 0
+            total_con_notas = 0
+
+            for ins in materias_inscritas:
+                if ins.nota:
+                    n = ins.nota
+                    promedio = (n.ser + n.saber + n.hacer + n.decidir + n.nota_final) / 5
+                    suma_notas += promedio
+                    total_con_notas += 1
+
+            if total_con_notas > 0:
+                promedio_general = round(suma_notas / total_con_notas, 2)
+
+            return Response({
+                "total_materias": total_materias,
+                "total_participaciones": total_participaciones,
+                "total_asistencias": total_asistencias,
+                "promedio_general": promedio_general
+            })
+
+        except FichaInscripcion.DoesNotExist:
+            return Response({"error": "No tenés ficha de inscripción."}, status=404)
+    
+    @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
+    def predecir_rendimiento(self, request):
+        alumno = request.user
+        resultados = predecir_rendimiento_individual(alumno)
+        return Response(resultados)
+
