@@ -144,8 +144,7 @@ class ProfesorViewSet(viewsets.ViewSet):
             asignacion = MateriaGestionCurso.objects.get(
                 profesor=profe,
                 materia_id=data['materia_id'],
-                curso_id=data['curso_id'],
-                gestion_id=data['gestion_id']
+                gestion_curso_id=data['gestion_curso'],
             )
         except MateriaGestionCurso.DoesNotExist:
             return Response({"error": "No estás asignado a esa materia."}, status=403)
@@ -157,19 +156,160 @@ class ProfesorViewSet(viewsets.ViewSet):
             materia_inscrita = MateriasInscritasGestion.objects.get(
                 ficha=ficha,
                 materia_id=data['materia_id'],
-                curso_id=data['curso_id'],
-                gestion_id=data['gestion_id']
+                gestion_curso_id=data['gestion_curso']
             )
         except Exception as e:
             return Response({"error": "No se encontró la inscripción del alumno."}, status=404)
 
         nota = materia_inscrita.nota
-        if data.get('nota1') is not None:
-            nota.nota1 = data['nota1']
-        if data.get('nota2') is not None:
-            nota.nota2 = data['nota2']
+        if data.get('ser') is not None:
+            nota.ser = data['ser']
+        if data.get('saber') is not None:
+            nota.saber = data['saber']
+        if data.get('hacer') is not None:
+            nota.hacer = data['hacer']
+        if data.get('decidir') is not None:
+            nota.decidir = data['decidir']
         if data.get('nota_final') is not None:
             nota.nota_final = data['nota_final']
         nota.save()
 
         return Response({"mensaje": "Nota actualizada correctamente."})
+    
+    @action(detail=False, methods=['POST'], url_path='registrar-asistencia')
+    def registrar_asistencia(self, request):
+        serializer = AsistenciaSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        data = serializer.validated_data
+        profe = request.user
+        try:
+            MateriaGestionCurso.objects.get(
+                profesor=profe,
+                materia_id=data['materia_id'],
+                gestion_curso_id=data['gestion_curso_id'],
+            )
+        except MateriaGestionCurso.DoesNotExist:
+            return Response({"error": "No estás asignado a esa materia."}, status=403)
+        
+        try:
+            alumno = Usuario.objects.get(id=data['alumno_id'], tipo_usuario='alum')
+            matricula = Matricula.objects.get(alumno=alumno)
+            ficha = FichaInscripcion.objects.get(matricula=matricula)
+        except Exception:
+            return Response({"error": "Alumno no encontrado o no inscrito."}, status=404)
+
+        Asistencia.objects.create(
+            ficha=ficha,
+            materia_id=data['materia_id'],
+            gestion_curso_id=data['gestion_curso_id'],
+            fecha=data['fecha'],
+            asistio=data['asistio']
+        )
+        return Response({"mensaje": "Asistencia registrada correctamente."})
+    
+    @action(detail=False, methods=['post'], url_path='registrar-participacion')
+    def registrar_participacion(self, request):
+        serializer = ParticipacionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        data = serializer.validated_data
+        profe = request.user
+
+        try:
+            MateriaGestionCurso.objects.get(
+                profesor=profe,
+                materia_id=data['materia_id'],
+                gestion_curso_id=data['gestion_curso_id'],
+            )
+        except MateriaGestionCurso.DoesNotExist:
+            return Response({"error": "No estás asignado a esa materia."}, status=403)
+
+        try:
+            alumno = Usuario.objects.get(id=data['alumno_id'], tipo_usuario='alum')
+            matricula = Matricula.objects.get(alumno=alumno)
+            ficha = FichaInscripcion.objects.get(matricula=matricula)
+        except Exception:
+            return Response({"error": "Alumno no encontrado o no inscrito."}, status=404)
+
+        Participacion.objects.create(
+            ficha=ficha,
+            materia_id=data['materia_id'],
+            gestion_curso_id=data['gestion_curso_id'],
+            fecha=data['fecha'],
+            descripcion=data['descripcion']
+        )
+
+        return Response({"mensaje": "Participación registrada correctamente."})
+    
+    @action(detail=False, methods=['get'], url_path='ver-asistencias')
+    def ver_asistencias(self, request):
+        profe = request.user
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        if not materia_id or not gestion_curso_id:
+            return Response({"error": "Faltan parámetros requeridos"}, status=400)
+
+        try:
+            asignacion = MateriaGestionCurso.objects.get(
+                profesor=profe,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+        except MateriaGestionCurso.DoesNotExist:
+            return Response({"error": "No estás asignado a esa materia."}, status=403)
+
+        asistencias = Asistencia.objects.filter(
+            materia_id=materia_id,
+            gestion_curso_id=gestion_curso_id
+        ).select_related('ficha__matricula__alumno')
+
+        resultado = [
+            {
+                "alumno": f"{a.ficha.matricula.alumno.nombre} {a.ficha.matricula.alumno.apellidos}",
+                "fecha": a.fecha,
+                "asistio": a.asistio
+            }
+            for a in asistencias
+        ]
+
+        return Response(resultado, status=200)
+    
+    @action(detail=False, methods=['get'], url_path='ver-participaciones')
+    def ver_participaciones(self, request):
+        profe = request.user
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        if not materia_id or not gestion_curso_id:
+            return Response({"error": "Faltan parámetros requeridos"}, status=400)
+
+        try:
+            asignacion = MateriaGestionCurso.objects.get(
+                profesor=profe,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+        except MateriaGestionCurso.DoesNotExist:
+            return Response({"error": "No estás asignado a esa materia."}, status=403)
+
+        participaciones = Participacion.objects.filter(
+            materia_id=materia_id,
+            gestion_curso_id=gestion_curso_id
+        ).select_related('ficha__matricula__alumno')
+
+        resultado = [
+            {
+                "alumno": f"{p.ficha.matricula.alumno.nombre} {p.ficha.matricula.alumno.apellidos}",
+                "fecha": p.fecha,
+                "descripcion": p.descripcion
+            }
+            for p in participaciones
+        ]
+
+        return Response(resultado, status=200)
+
+
+
