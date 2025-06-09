@@ -16,7 +16,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     direccion = DireccionSerializer() 
     class Meta:
         model = Usuario
-        fields = ['id','nombre', 'apellidos', 'email', 'tipo_usuario', 'password', 'direccion']
+        fields = ['id','nombre', 'apellidos', 'email', 'ci','tipo_usuario', 'password', 'direccion']
         extra_kwargs = {
             'password': {'write_only': True},
         }
@@ -44,6 +44,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
         user = getattr(self, 'instance', None)
         if Usuario.objects.exclude(pk=getattr(user, 'pk', None)).filter(email=value).exists():
             raise serializers.ValidationError("Ese correo ya está registrado.")
+        return value
+    
+    def validate_ci(self, value):
+        user = getattr(self, 'instance', None)
+        if Usuario.objects.exclude(pk=getattr(user, 'pk', None)).filter(ci=value).exists():
+            raise serializers.ValidationError("Ese CI ya está registrado.")
         return value
     
     def update(self, instance, validated_data):
