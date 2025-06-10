@@ -130,7 +130,15 @@ class ProfesorViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='mis-materias')
     def mis_materias(self, request):
         profe = request.user
-        asignaciones = MateriaGestionCurso.objects.filter(profesor=profe)
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
+        asignaciones = MateriaGestionCurso.objects.filter(
+            profesor=profe,
+            gestion_curso__gestion_id=gestion_id
+        )
         serializer = MateriaGestionCursoSerializer(asignaciones, many=True)
         return Response(serializer.data)
     
