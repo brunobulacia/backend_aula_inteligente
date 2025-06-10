@@ -35,3 +35,5 @@ notificaciones-push-30569-firebase-adminsdk-fbsvc-e6de9410fa.json
 # Archivos de migraciones innecesarias
 */migrations/__pycache__/
 */migrations/*.pyc
+
+
