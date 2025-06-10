@@ -57,6 +57,7 @@ class Usuario(AbstractUser):
     email = models.EmailField(unique=True)
     tipo_usuario = models.CharField(max_length=5, choices=TIPO_USUARIO_CHOICES)
     direccion = models.OneToOneField(Direccion, on_delete=models.SET_NULL,null=True)
+    fcm_token = models.TextField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['nombre', 'apellidos']

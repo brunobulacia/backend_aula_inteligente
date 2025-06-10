@@ -9,4 +9,5 @@ urlpatterns = [
     path('login/', views.login),
     path('listar/', views.obtener_usuarios),
     path('alumnos/', views.alumnos_por_gestion),
+    path('guardar-fcm-token/', views.guardar_fcm_token),
 ]
