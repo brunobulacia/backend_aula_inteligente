@@ -11,6 +11,7 @@ from .serializers import FichaInscripcionSerializer, InscripcionSerializer, Mate
 from usuarios.serializers import UsuarioSerializer
 from materias.serializers import MateriaGestionCursoSerializer
 from .ml.ml_utils import entrenar_modelo_rendimiento, predecir_rendimiento_grupal, predecir_rendimiento_individual
+from .utils.fcm import enviar_notificacion_push
 
 
 class FichaInscripcionViewSet(viewsets.ModelViewSet):
@@ -385,8 +386,14 @@ class ProfesorViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
     def predecir_rendimiento(self, request):
         profesor = request.user
-        resultados = predecir_rendimiento_grupal(profesor)
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
+        resultados = predecir_rendimiento_grupal(profesor, gestion_id=int(gestion_id))
         return Response(resultados)
+
 
     
 
@@ -402,13 +409,22 @@ class AlumnoViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='mis-materias')
     def mis_materias(self, request):
         alumno = request.user
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
         try:
             ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
-            materias = MateriasInscritasGestion.objects.filter(ficha=ficha)
+            materias = MateriasInscritasGestion.objects.filter(
+                ficha=ficha,
+                gestion_curso__gestion_id=gestion_id
+            )
             serializer = MateriasInscritasGestionSerializer(materias, many=True)
             return Response(serializer.data)
-        except:
+        except FichaInscripcion.DoesNotExist:
             return Response({"error": "No estás inscrito en ninguna materia."}, status=404)
+
 
     @action(detail=False, methods=['get'], url_path='mis-notas')
     def ver_nota_materia(self, request):
@@ -515,6 +531,28 @@ class AlumnoViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
     def predecir_rendimiento(self, request):
         alumno = request.user
-        resultados = predecir_rendimiento_individual(alumno)
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
+        resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
+
+        # 🔔 Verificamos si la nota real es menor que la predicha
+        for r in resultados:
+            nota_real = r.get('nota_final_real', 0)
+            nota_predicha = r.get('nota_final_predicha', 0)
+            materia_nombre = r.get('materia')
+
+            if nota_real < nota_predicha:
+                titulo = "¡Rendimiento bajo!"
+                cuerpo = f"En {materia_nombre}, tu nota real fue {nota_real:.1f}, menor a la esperada ({nota_predicha:.1f}). ¡No te rindás!"
+                try:
+                    enviar_notificacion_push(alumno.fcm_token, titulo, cuerpo)
+                except Exception as e:
+                    print(f"Error enviando notificación push: {e}")
+
         return Response(resultados)
+
+
 

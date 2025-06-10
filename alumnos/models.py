@@ -3,6 +3,7 @@ from usuarios.models import Usuario
 
 
 class Matricula(models.Model):
+    id = models.BigIntegerField(primary_key=True, editable=False, unique=True)
     alumno = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
@@ -11,8 +12,14 @@ class Matricula(models.Model):
     )
     fecha = models.DateField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.alumno}"
+    def save(self, *args, **kwargs):
+        if not self.id:
+            ultimo = Matricula.objects.order_by('-id').first()
+            if ultimo:
+                self.id = ultimo.id + 1
+            else:
+                self.id = 219000000  # primer ID con 9 dígitos
+        super().save(*args, **kwargs)
 
 
 class FichaInscripcion(models.Model):

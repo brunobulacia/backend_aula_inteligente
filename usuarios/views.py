@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes, action
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -89,3 +89,14 @@ class DireccionViewSet(viewsets.ModelViewSet):
 
     
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def guardar_fcm_token(request):
+    token = request.data.get('fcm_token')
+    if not token:
+        return Response({'error': 'No se envió ningún token'}, status=400)
+
+    usuario = request.user
+    usuario.fcm_token = token
+    usuario.save()
+    return Response({'mensaje': 'Token guardado correctamente'})

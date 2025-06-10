@@ -14,4 +14,5 @@ urlpatterns = [
     path('alumnos/', views.alumnos_por_gestion),
     path('profesores/', views.obtener_profesores, name='obtener_profesores'),
     path('', include(router.urls)),
+    path('guardar-fcm-token/', views.guardar_fcm_token),
 ]
