@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
     }
 } """
 
-DATABASES = {
+""" DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME'),
@@ -95,6 +95,16 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT'),
+    }
+} """
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'aula_inteligente',
+        'USER': 'postgres',
+        'PASSWORD': 'BRUNO6464',
+        'HOST': 'dbaulaiinteligente.cnmo26s2o0oz.us-east-2.rds.amazonaws.com',
+        'PORT': '5432'
     }
 }
 
