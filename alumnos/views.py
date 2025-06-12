@@ -1,3 +1,6 @@
+import base64
+import json
+from datetime import datetime, date
 from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import viewsets, status, serializers
@@ -401,6 +404,25 @@ class ProfesorViewSet(viewsets.ViewSet):
 
         resultados = predecir_rendimiento_grupal(profesor, gestion_id=int(gestion_id))
         return Response(resultados)
+    
+    @action(detail=False, methods=['get'], url_path='generar-qr-asistencia')
+    def generar_qr_asistencia(self, request):
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        if not materia_id or not gestion_curso_id:
+            return Response({'error': 'Faltan parámetros'}, status=400)
+
+        payload = {
+            'materia_id': int(materia_id),
+            'gestion_curso_id': int(gestion_curso_id),
+            'fecha': str(date.today())
+        }
+
+        qr_string = base64.b64encode(json.dumps(payload).encode()).decode()
+
+        return Response({'qr_data': qr_string})
+
 
 
     
@@ -561,6 +583,37 @@ class AlumnoViewSet(viewsets.ViewSet):
                     print(f"Error enviando notificación push: {e}")
 
         return Response(resultados)
+    
+    @action(detail=False, methods=['post'], url_path='registrar-asistencia-qr')
+    def registrar_asistencia_qr(self, request):
+        user = request.user
+        qr_data = request.data.get('qr_data')
+
+        if not qr_data:
+            return Response({'error': 'Falta el campo qr_data'}, status=400)
+
+        try:
+            decoded = json.loads(base64.b64decode(qr_data).decode())
+            materia_id = decoded['materia_id']
+            gestion_curso_id = decoded['gestion_curso_id']
+            fecha = decoded['fecha']
+        except Exception as e:
+            return Response({'error': 'QR inválido'}, status=400)
+
+        asistencia_data = {
+            'alumno_id': user.id,
+            'materia_id': materia_id,
+            'gestion_curso_id': gestion_curso_id,
+            'fecha': fecha,
+            'asistio': True
+        }
+
+        serializer = AsistenciaSerializer(data=asistencia_data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'mensaje': 'Asistencia registrada'})
+        return Response(serializer.errors, status=400)
+
 
 
 
