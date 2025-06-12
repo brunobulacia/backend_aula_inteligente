@@ -1,7 +1,7 @@
 # Entorno virtual
 venv/
 .env/
-
+notificaciones-push-30569-firebase-adminsdk-fbsvc-e6de9410fa.json
 __pycache__/
 *.py[cod]
 *$py.class
@@ -24,7 +24,7 @@ ENV/
 *.egg-info/
 dist/
 build/
-notificaciones-push-30569-firebase-adminsdk-fbsvc-e6de9410fa.json
+
 staticfiles/
 media/
 static/
@@ -33,5 +33,4 @@ static/
 # Archivos de migraciones innecesarias
 */migrations/__pycache__/
 */migrations/*.pyc
-
 
