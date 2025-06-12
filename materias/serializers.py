@@ -17,12 +17,37 @@ class GestionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class GestionCursoSerializer(serializers.ModelSerializer):
-    gestion_periodo = serializers.CharField(source='gestion.periodo', read_only=True)
-    curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
+    gestion_periodo = serializers.CharField(source='gestion.periodo')
+    curso_nombre = serializers.CharField(source='curso.nombre')
 
     class Meta:
         model = GestionCurso
-        fields = ['id', 'gestion', 'curso', 'gestion_periodo', 'curso_nombre']
+        fields = ['id', 'gestion_periodo', 'curso_nombre']
+
+    def validate(self, attrs):
+        # Buscar la gestión por periodo
+        periodo = attrs.get('gestion', {}).get('periodo') or attrs.get('gestion_periodo')
+        try:
+            gestion = Gestion.objects.get(periodo=periodo)
+        except Gestion.DoesNotExist:
+            raise serializers.ValidationError({'gestion_periodo': 'No existe una gestión con ese periodo.'})
+
+        # Buscar el curso por nombre
+        nombre = attrs.get('curso', {}).get('nombre') or attrs.get('curso_nombre')
+        try:
+            curso = Curso.objects.get(nombre=nombre)
+        except Curso.DoesNotExist:
+            raise serializers.ValidationError({'curso_nombre': 'No existe un curso con ese nombre.'})
+
+        attrs['gestion'] = gestion
+        attrs['curso'] = curso
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.gestion = validated_data.get('gestion', instance.gestion)
+        instance.curso = validated_data.get('curso', instance.curso)
+        instance.save()
+        return instance
 
 class HorarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,14 +65,14 @@ class DiaHorarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class MateriaGestionCursoSerializer(serializers.ModelSerializer):
-    materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
+    """ materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
     curso_nombre = serializers.CharField(source='gestion_curso.curso.nombre', read_only=True)
     profesor_nombre = serializers.CharField(source='profesor.nombre', read_only=True)
     gestion_periodo = serializers.CharField(source='gestion_curso.gestion.periodo', read_only=True)
     
     dia_horarios = serializers.PrimaryKeyRelatedField(
         queryset=Dia_Horario.objects.all(), many=True
-    )
+    ) """
     
     class Meta:
         model = MateriaGestionCurso
