@@ -24,8 +24,7 @@ ENV/
 *.egg-info/
 dist/
 build/
-
-
+notificaciones-push-30569-firebase-adminsdk-fbsvc-e6de9410fa.json
 staticfiles/
 media/
 static/
