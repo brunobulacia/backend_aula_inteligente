@@ -8,5 +8,5 @@ router.register('asistencias', views.AsistenciaViewSet)
 router.register('participaciones', views.ParticipacionViewSet)
 router.register('profesores', views.ProfesorViewSet, basename='profesores')
 router.register('vista-alumno', views.AlumnoViewSet, basename='vista-alumno')
-
+router.register('vista-padre', views.PadreViewSet, basename='vista-padre')
 urlpatterns = router.urls

@@ -9,7 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import FichaInscripcion, MateriasInscritasGestion, Nota, Asistencia, Participacion, Matricula
 from materias.models import MateriaGestionCurso
-from usuarios.models import Usuario
+from usuarios.models import Usuario, PadreAlumno
 from .serializers import FichaInscripcionSerializer, InscripcionSerializer, MateriasInscritasGestionSerializer, NotaSerializer, AsistenciaSerializer, ParticipacionSerializer, CalificacionSerializer, PrediccionRendimientoSerializer
 from usuarios.serializers import UsuarioSerializer
 from materias.serializers import MateriaGestionCursoSerializer
@@ -155,7 +155,6 @@ class ProfesorViewSet(viewsets.ViewSet):
         profe = request.user
 
         try:
-            # Validar que el profe tenga esa asignación
             asignacion = MateriaGestionCurso.objects.get(
                 profesor=profe,
                 materia_id=data['materia_id'],
@@ -187,7 +186,39 @@ class ProfesorViewSet(viewsets.ViewSet):
             nota.decidir = data['decidir']
         nota.nota_final = (nota.ser or 0) + (nota.saber or 0) + (nota.hacer or 0) + (nota.decidir or 0)
         nota.save()
+
+        # 🧠 Comparar contra la predicción
+        try:
+            from .ml.ml_utils import predecir_rendimiento_individual
+
+            resultados = predecir_rendimiento_individual(alumno, gestion_id=asignacion.gestion_curso.gestion.id)
+            resultado_materia = next((r for r in resultados if r['materia_id'] == data['materia_id']), None)
+
+            if resultado_materia:
+                nota_real = nota.nota_final
+                nota_predicha = resultado_materia.get('nota_final_predicha', 0)
+                materia_nombre = resultado_materia.get('materia', 'Materia')
+
+                if nota_real < nota_predicha:
+                    titulo = "📉 Rendimiento bajo"
+                    cuerpo = f"En {materia_nombre}, la nota real del alumno fue {nota_real:.1f}, menor a la esperada ({nota_predicha:.1f})."
+
+                    # ➤ Notificar al alumno
+                    if alumno.fcm_token:
+                        enviar_notificacion_push(alumno.fcm_token, titulo, cuerpo)
+
+                    # ➤ Notificar a los padres
+                    padres = alumno.padres.all()
+                    for p in alumno.padres.all():  # p es un objeto PadreAlumno
+                        padre = p.padre
+                        if padre.fcm_token:
+                            enviar_notificacion_push(padre.fcm_token, titulo, cuerpo)
+
+        except Exception as e:
+            print(f"⚠️ Error en predicción o envío de notificación: {e}")
+
         return Response({"mensaje": "Nota actualizada correctamente."})
+
     
     @action(detail=False, methods=['POST'], url_path='registrar-asistencia')
     def registrar_asistencia(self, request):
@@ -568,7 +599,6 @@ class AlumnoViewSet(viewsets.ViewSet):
 
         resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
 
-        # 🔔 Verificamos si la nota real es menor que la predicha
         for r in resultados:
             nota_real = r.get('nota_final_real', 0)
             nota_predicha = r.get('nota_final_predicha', 0)
@@ -614,6 +644,153 @@ class AlumnoViewSet(viewsets.ViewSet):
             return Response({'mensaje': 'Asistencia registrada'})
         return Response(serializer.errors, status=400)
 
+class EsPadre(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.tipo_usuario == 'padre'
+    
 
+class PadreViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, EsPadre]
+
+    @action(detail=False, methods=['get'], url_path='mis-hijos')
+    def mis_hijos(self, request):
+        padre = request.user
+        hijos = Usuario.objects.filter(padres__padre=padre)
+        serializer = UsuarioSerializer(hijos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='ver-materias')
+    def ver_materias(self, request):
+        alumno_id = request.query_params.get('alumno_id')
+        gestion_id = request.query_params.get('gestion_id')
+        if not alumno_id or not gestion_id:
+            return Response({"error": "Faltan parámetros"}, status=400)
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            materias = MateriasInscritasGestion.objects.filter(ficha=ficha, gestion_curso__gestion_id=gestion_id)
+            serializer = MateriasInscritasGestionSerializer(materias, many=True)
+            return Response(serializer.data)
+        except:
+            return Response({"error": "No se encontraron materias"}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='ver-nota')
+    def ver_nota(self, request):
+        alumno_id = request.query_params.get('alumno_id')
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            materia_inscrita = MateriasInscritasGestion.objects.get(
+                ficha=ficha,
+                materia_id=materia_id,
+                gestion_curso_id=gestion_curso_id
+            )
+            nota = materia_inscrita.nota
+            return Response({
+                "ser": nota.ser,
+                "saber": nota.saber,
+                "hacer": nota.hacer,
+                "decidir": nota.decidir,
+                "nota_final": nota.nota_final
+            })
+        except:
+            return Response({"error": "No se encontró la nota"}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='ver-asistencias')
+    def ver_asistencias(self, request):
+        alumno_id = request.query_params.get('alumno_id')
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            asistencias = Asistencia.objects.filter(ficha=ficha, materia_id=materia_id, gestion_curso_id=gestion_curso_id)
+            data = [{"fecha": a.fecha, "asistio": a.asistio} for a in asistencias]
+            return Response(data)
+        except:
+            return Response({"error": "No se encontraron asistencias"}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='ver-participaciones')
+    def ver_participaciones(self, request):
+        alumno_id = request.query_params.get('alumno_id')
+        materia_id = request.query_params.get('materia_id')
+        gestion_curso_id = request.query_params.get('gestion_curso_id')
+
+        try:
+            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            participaciones = Participacion.objects.filter(ficha=ficha, materia_id=materia_id, gestion_curso_id=gestion_curso_id)
+            data = [{"fecha": p.fecha, "descripcion": p.descripcion} for p in participaciones]
+            return Response(data)
+        except:
+            return Response({"error": "No se encontraron participaciones"}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        padre = request.user
+        hijos = Usuario.objects.filter(padres__padre=padre)
+
+        total_materias = 0
+        total_asistencias = 0
+        total_participaciones = 0
+        suma_promedios = 0
+        total_hijos_con_notas = 0
+
+        for hijo in hijos:
+            try:
+                ficha = FichaInscripcion.objects.get(matricula__alumno=hijo)
+                materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
+                total_materias += materias_inscritas.count()
+                total_asistencias += Asistencia.objects.filter(ficha=ficha).count()
+                total_participaciones += Participacion.objects.filter(ficha=ficha).count()
+
+                suma_hijo = 0
+                n_materias = 0
+                for ins in materias_inscritas:
+                    if ins.nota:
+                        n = ins.nota
+                        suma_hijo += (n.ser + n.saber + n.hacer + n.decidir + n.nota_final) / 5
+                        n_materias += 1
+
+                if n_materias > 0:
+                    promedio_hijo = suma_hijo / n_materias
+                    suma_promedios += promedio_hijo
+                    total_hijos_con_notas += 1
+
+            except:
+                continue
+
+        promedio_general = round(suma_promedios / total_hijos_con_notas, 2) if total_hijos_con_notas > 0 else 0
+
+        return Response({
+            "total_materias": total_materias,
+            "total_asistencias": total_asistencias,
+            "total_participaciones": total_participaciones,
+            "promedio_general": promedio_general
+        })
+
+    @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
+    def predecir_rendimiento(self, request):
+        padre = request.user
+        alumno_id = request.query_params.get('alumno_id')
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not alumno_id or not gestion_id:
+            return Response({"error": "Faltan parámetros requeridos"}, status=400)
+
+        try:
+            alumno = Usuario.objects.get(id=alumno_id, tipo_usuario='alum')
+            # Verificar si es hijo del padre actual
+            if not PadreAlumno.objects.filter(padre=padre, alumno=alumno).exists():
+                return Response({"error": "Este alumno no está vinculado a tu cuenta"}, status=403)
+
+            resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
+            return Response(resultados)
+
+        except Usuario.DoesNotExist:
+            return Response({"error": "Alumno no encontrado"}, status=404)
+        except Exception as e:
+            return Response({"error": f"Error inesperado: {str(e)}"}, status=500)
 
 

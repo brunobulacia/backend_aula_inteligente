@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from .models import Usuario, Direccion
+from .models import Usuario, Direccion, PadreAlumno
 
 
 
@@ -85,3 +85,11 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+    
+class PadreAlumnoSerializer(serializers.ModelSerializer):
+    alumno_nombre = serializers.CharField(source='alumno.nombre', read_only=True)
+    alumno_apellidos = serializers.CharField(source='alumno.apellidos', read_only=True)
+
+    class Meta:
+        model = PadreAlumno
+        fields = ['id', 'padre', 'alumno', 'alumno_nombre', 'alumno_apellidos']    

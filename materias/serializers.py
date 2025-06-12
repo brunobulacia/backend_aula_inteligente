@@ -65,14 +65,14 @@ class DiaHorarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class MateriaGestionCursoSerializer(serializers.ModelSerializer):
-    """ materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
+    materia_nombre = serializers.CharField(source='materia.nombre', read_only=True)
     curso_nombre = serializers.CharField(source='gestion_curso.curso.nombre', read_only=True)
     profesor_nombre = serializers.CharField(source='profesor.nombre', read_only=True)
     gestion_periodo = serializers.CharField(source='gestion_curso.gestion.periodo', read_only=True)
     
     dia_horarios = serializers.PrimaryKeyRelatedField(
         queryset=Dia_Horario.objects.all(), many=True
-    ) """
+    )
     
     class Meta:
         model = MateriaGestionCurso

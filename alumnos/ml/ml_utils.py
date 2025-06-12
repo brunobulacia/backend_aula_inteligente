@@ -242,6 +242,7 @@ def predecir_rendimiento_individual(alumno, gestion_id=None):
 
         resultados.append({
             "materia": materia.nombre,
+            "materia_id": materia.id,
             "gestion": gestion_curso.gestion.periodo,
             "curso": gestion_curso.curso.nombre,
             "ser_real": round(nota.ser, 2) if nota else None,

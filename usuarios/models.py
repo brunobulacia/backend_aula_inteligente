@@ -50,6 +50,7 @@ class Usuario(AbstractUser):
         ('admin', 'Administrador'),
         ('prof', 'Profesor'),
         ('alum', 'Alumno'),
+        ('padre', 'Padre de familia'),
     ]
     nombre = models.CharField(max_length=50)
     apellidos = models.CharField(max_length=100)
@@ -65,5 +66,16 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class PadreAlumno(models.Model):
+    padre = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='hijos', limit_choices_to={'tipo_usuario': 'padre'})
+    alumno = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='padres', limit_choices_to={'tipo_usuario': 'alum'})
+
+    class Meta:
+        unique_together = ('padre', 'alumno')
+
+    def __str__(self):
+        return f"{self.padre.nombre} → {self.alumno.nombre}"
 
 
