@@ -429,12 +429,15 @@ class ProfesorViewSet(viewsets.ViewSet):
     def predecir_rendimiento(self, request):
         profesor = request.user
         gestion_id = request.query_params.get('gestion_id')
+        curso_id = request.query_params.get('curso_id')
 
-        if not gestion_id:
-            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
-
-        resultados = predecir_rendimiento_grupal(profesor, gestion_id=int(gestion_id))
+        resultados = predecir_rendimiento_grupal(
+            profesor,
+            gestion_id=int(gestion_id) if gestion_id else None,
+            curso_id=int(curso_id) if curso_id else None
+        )   
         return Response(resultados)
+
     
     @action(detail=False, methods=['get'], url_path='generar-qr-asistencia')
     def generar_qr_asistencia(self, request):
@@ -598,21 +601,8 @@ class AlumnoViewSet(viewsets.ViewSet):
             return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
 
         resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
-
-        for r in resultados:
-            nota_real = r.get('nota_final_real', 0)
-            nota_predicha = r.get('nota_final_predicha', 0)
-            materia_nombre = r.get('materia')
-
-            if nota_real < nota_predicha:
-                titulo = "¡Rendimiento bajo!"
-                cuerpo = f"En {materia_nombre}, tu nota real fue {nota_real:.1f}, menor a la esperada ({nota_predicha:.1f}). ¡No te rindás!"
-                try:
-                    enviar_notificacion_push(alumno.fcm_token, titulo, cuerpo)
-                except Exception as e:
-                    print(f"Error enviando notificación push: {e}")
-
         return Response(resultados)
+
     
     @action(detail=False, methods=['post'], url_path='registrar-asistencia-qr')
     def registrar_asistencia_qr(self, request):

@@ -88,15 +88,18 @@ def entrenar_modelo_rendimiento():
 
     return ruta_salida
 
-def predecir_rendimiento_grupal(profesor, gestion_id=None):
+def predecir_rendimiento_grupal(profesor, gestion_id=None, curso_id=None):
     modelo_path = os.path.join(settings.BASE_DIR, 'alumnos', 'ml', 'modelo_rendimiento.pkl')
     modelos = joblib.load(modelo_path)
 
     resultados = []
 
     asignaciones = MateriaGestionCurso.objects.filter(profesor=profesor)
+
     if gestion_id:
         asignaciones = asignaciones.filter(gestion_curso__gestion_id=gestion_id)
+    if curso_id:
+        asignaciones = asignaciones.filter(gestion_curso__curso_id=curso_id)
 
     for asignacion in asignaciones:
         gestion_curso = asignacion.gestion_curso
@@ -108,61 +111,43 @@ def predecir_rendimiento_grupal(profesor, gestion_id=None):
         if not inscritos.exists():
             continue
 
-        suma_ser_predicho = 0
-        suma_saber_predicho = 0
-        suma_hacer_predicho = 0
-        suma_decidir_predicho = 0
-        suma_total_predicha = 0
-
-        suma_total_real = 0
-        suma_ser_real = 0
-        suma_saber_real = 0
-        suma_hacer_real = 0
-        suma_decidir_real = 0
-
+        acum_pred = {"ser": 0, "saber": 0, "hacer": 0, "decidir": 0, "total": 0}
+        acum_real = {"ser": 0, "saber": 0, "hacer": 0, "decidir": 0, "total": 0}
         total_estudiantes = 0
 
         for ins in inscritos:
             alumno = ins.ficha.matricula.alumno
-            asistencias = Asistencia.objects.filter(
-                ficha=ins.ficha, materia=materia, gestion_curso=gestion_curso, asistio=True
-            ).count()
-            participaciones = Participacion.objects.filter(
-                ficha=ins.ficha, materia=materia, gestion_curso=gestion_curso
-            ).count()
+            asistencias = Asistencia.objects.filter(ficha=ins.ficha, materia=materia, gestion_curso=gestion_curso, asistio=True).count()
+            participaciones = Participacion.objects.filter(ficha=ins.ficha, materia=materia, gestion_curso=gestion_curso).count()
 
+            # Predicciones
             ser = modelos["ser"].predict(pd.DataFrame([[asistencias]], columns=["asistencias"]))[0]
             hacer = modelos["hacer"].predict(pd.DataFrame([[participaciones]], columns=["participaciones"]))[0]
             decidir = modelos["decidir"].predict(pd.DataFrame([[participaciones]], columns=["participaciones"]))[0]
 
-            anteriores = MateriasInscritasGestion.objects.filter(
-                ficha__matricula__alumno=alumno
-            ).exclude(id=ins.id)
-
-            notas_saber_previas = [
-                i.nota.saber for i in anteriores if i.nota and i.nota.saber is not None
-            ]
-
+            saber = 0.0
+            anteriores = MateriasInscritasGestion.objects.filter(ficha__matricula__alumno=alumno).exclude(id=ins.id)
+            notas_saber_previas = [i.nota.saber for i in anteriores if i.nota and i.nota.saber is not None]
             if "saber" in modelos and notas_saber_previas:
                 promedio_saber_pasado = sum(notas_saber_previas) / len(notas_saber_previas)
                 saber = modelos["saber"].predict(pd.DataFrame([[promedio_saber_pasado]], columns=["saber_pasado"]))[0]
-            else:
-                saber = 0.0
 
             nota_predicha = ser + saber + hacer + decidir
 
-            suma_ser_predicho += ser
-            suma_saber_predicho += saber
-            suma_hacer_predicho += hacer
-            suma_decidir_predicho += decidir
-            suma_total_predicha += nota_predicha
+            # Sumar predicción
+            acum_pred["ser"] += ser
+            acum_pred["saber"] += saber
+            acum_pred["hacer"] += hacer
+            acum_pred["decidir"] += decidir
+            acum_pred["total"] += nota_predicha
 
+            # Sumar real
             if ins.nota:
-                suma_ser_real += ins.nota.ser
-                suma_saber_real += ins.nota.saber
-                suma_hacer_real += ins.nota.hacer
-                suma_decidir_real += ins.nota.decidir
-                suma_total_real += ins.nota.nota_final
+                acum_real["ser"] += ins.nota.ser
+                acum_real["saber"] += ins.nota.saber
+                acum_real["hacer"] += ins.nota.hacer
+                acum_real["decidir"] += ins.nota.decidir
+                acum_real["total"] += ins.nota.nota_final
 
             total_estudiantes += 1
 
@@ -170,19 +155,20 @@ def predecir_rendimiento_grupal(profesor, gestion_id=None):
             "materia": materia.nombre,
             "gestion": gestion_curso.gestion.periodo,
             "curso": gestion_curso.curso.nombre,
-            "ser_predicho": round(suma_ser_predicho / total_estudiantes, 2),
-            "saber_predicho": round(suma_saber_predicho / total_estudiantes, 2),
-            "hacer_predicho": round(suma_hacer_predicho / total_estudiantes, 2),
-            "decidir_predicho": round(suma_decidir_predicho / total_estudiantes, 2),
-            "nota_final_predicha": round(suma_total_predicha / total_estudiantes, 2),
-            "ser_real": round(suma_ser_real / total_estudiantes, 2),
-            "saber_real": round(suma_saber_real / total_estudiantes, 2),
-            "hacer_real": round(suma_hacer_real / total_estudiantes, 2),
-            "decidir_real": round(suma_decidir_real / total_estudiantes, 2),
-            "nota_final_real": round(suma_total_real / total_estudiantes, 2),
+            "ser_predicho": round(acum_pred["ser"] / total_estudiantes, 2),
+            "saber_predicho": round(acum_pred["saber"] / total_estudiantes, 2),
+            "hacer_predicho": round(acum_pred["hacer"] / total_estudiantes, 2),
+            "decidir_predicho": round(acum_pred["decidir"] / total_estudiantes, 2),
+            "nota_final_predicha": round(acum_pred["total"] / total_estudiantes, 2),
+            "ser_real": round(acum_real["ser"] / total_estudiantes, 2),
+            "saber_real": round(acum_real["saber"] / total_estudiantes, 2),
+            "hacer_real": round(acum_real["hacer"] / total_estudiantes, 2),
+            "decidir_real": round(acum_real["decidir"] / total_estudiantes, 2),
+            "nota_final_real": round(acum_real["total"] / total_estudiantes, 2),
         })
 
     return resultados
+
 
 
 
