@@ -1,5 +1,6 @@
 import base64
 import json
+import binascii
 from datetime import datetime, date
 from django.shortcuts import render
 from django.utils import timezone
@@ -675,9 +676,9 @@ class AlumnoViewSet(viewsets.ViewSet):
             gestion_curso_id = decoded['gestion_curso_id']
             fecha = decoded['fecha']
             print("✅ Decodificado JSON:", decoded)
-        except Exception as e:
+        except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, KeyError) as e:
             print("❌ Error al decodificar:", str(e))
-            return Response({'error': 'QR inválido'}, status=400)
+            return Response({'error': 'QR inválido o incompleto'}, status=400)
 
         print(f"🔎 Buscando ficha del alumno {user.id}...")
 
