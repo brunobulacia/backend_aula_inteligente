@@ -179,14 +179,16 @@ def predecir_rendimiento_individual(alumno, gestion_id=None):
 
     resultados = []
 
-    try:
-        ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
-    except FichaInscripcion.DoesNotExist:
+    # Buscar la ficha correcta para esa gestión
+    materias_inscritas = MateriasInscritasGestion.objects.filter(
+        ficha__matricula__alumno=alumno,
+        gestion_curso__gestion_id=gestion_id
+    ).select_related('ficha', 'materia', 'gestion_curso', 'nota')
+
+    if not materias_inscritas.exists():
         return resultados
 
-    materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
-    if gestion_id:
-        materias_inscritas = materias_inscritas.filter(gestion_curso__gestion_id=gestion_id)
+    ficha = materias_inscritas.first().ficha
 
     for ins in materias_inscritas:
         materia = ins.materia
@@ -244,3 +246,4 @@ def predecir_rendimiento_individual(alumno, gestion_id=None):
         })
 
     return resultados
+

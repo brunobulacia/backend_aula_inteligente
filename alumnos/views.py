@@ -479,7 +479,10 @@ class AlumnoViewSet(viewsets.ViewSet):
             return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            ficha = self.obtener_ficha_por_gestion(alumno, gestion_id)
+            if not ficha:
+                return Response({"error": "No estás inscrito en ninguna materia para esa gestión."}, status=404)
+
             materias = MateriasInscritasGestion.objects.filter(
                 ficha=ficha,
                 gestion_curso__gestion_id=gestion_id
@@ -497,7 +500,10 @@ class AlumnoViewSet(viewsets.ViewSet):
         gestion_curso_id = request.query_params.get('gestion_curso_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            ficha = self.obtener_ficha_por_gestion(alumno, gestion_curso_id)
+            if not ficha:
+                return Response({"error": "No se encontró ficha para esa gestión."}, status=404)
+
             materia_inscrita = MateriasInscritasGestion.objects.get(
                 ficha=ficha,
                 materia_id=materia_id,
@@ -521,7 +527,10 @@ class AlumnoViewSet(viewsets.ViewSet):
         gestion_curso_id = request.query_params.get('gestion_curso_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            ficha = self.obtener_ficha_por_gestion(alumno, gestion_curso_id)
+            if not ficha:
+                return Response({"error": "No se encontró ficha para esa gestión."}, status=404)
+
             asistencias = Asistencia.objects.filter(
                 ficha=ficha,
                 materia_id=materia_id,
@@ -542,7 +551,10 @@ class AlumnoViewSet(viewsets.ViewSet):
         gestion_curso_id = request.query_params.get('gestion_curso_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
+            ficha = self.obtener_ficha_por_gestion(alumno, gestion_curso_id)
+            if not ficha:
+                return Response({"error": "No se encontró ficha para esa gestión."}, status=404)
+
             participaciones = Participacion.objects.filter(
                 ficha=ficha,
                 materia_id=materia_id,
@@ -559,10 +571,17 @@ class AlumnoViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='dashboard')
     def dashboard(self, request):
         alumno = request.user
+        gestion_id = request.query_params.get('gestion_id')
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno=alumno)
-            materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
-
+            ficha = self.obtener_ficha_por_gestion(alumno, gestion_id)
+            if not ficha:
+                return Response({"error": "No tenés ficha para esa gestión."}, status=404)
+            materias_inscritas = MateriasInscritasGestion.objects.filter(
+                ficha=ficha,
+                gestion_curso__gestion_id=gestion_id
+            )
             total_materias = materias_inscritas.count()
 
             total_participaciones = Participacion.objects.filter(ficha=ficha).count()
@@ -602,6 +621,16 @@ class AlumnoViewSet(viewsets.ViewSet):
 
         resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
         return Response(resultados)
+    
+    def obtener_ficha_por_gestion(self, alumno, gestion_id):
+        try:
+            fichas = FichaInscripcion.objects.filter(matricula__alumno=alumno)
+            for ficha in fichas:
+                if MateriasInscritasGestion.objects.filter(ficha=ficha, gestion_curso__gestion_id=gestion_id).exists():
+                    return ficha
+            return None
+        except:
+            return None
 
     
     @action(detail=False, methods=['post'], url_path='registrar-asistencia-qr')
@@ -620,8 +649,19 @@ class AlumnoViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({'error': 'QR inválido'}, status=400)
 
+        
+        fichas = FichaInscripcion.objects.filter(matricula__alumno=user)
+        ficha = None
+        for f in fichas:
+            if MateriasInscritasGestion.objects.filter(ficha=f, gestion_curso_id=gestion_curso_id, materia_id=materia_id).exists():
+                ficha = f
+                break
+
+        if not ficha:
+            return Response({'error': 'No tenés ficha válida para esta materia y gestión'}, status=404)
+
         asistencia_data = {
-            'alumno_id': user.id,
+            'ficha': ficha.id,
             'materia_id': materia_id,
             'gestion_curso_id': gestion_curso_id,
             'fecha': fecha,
@@ -633,6 +673,7 @@ class AlumnoViewSet(viewsets.ViewSet):
             serializer.save()
             return Response({'mensaje': 'Asistencia registrada'})
         return Response(serializer.errors, status=400)
+
 
 class EsPadre(BasePermission):
     def has_permission(self, request, view):
@@ -657,7 +698,10 @@ class PadreViewSet(viewsets.ViewSet):
             return Response({"error": "Faltan parámetros"}, status=400)
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+            if not ficha:
+                return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
+
             materias = MateriasInscritasGestion.objects.filter(ficha=ficha, gestion_curso__gestion_id=gestion_id)
             serializer = MateriasInscritasGestionSerializer(materias, many=True)
             return Response(serializer.data)
@@ -669,9 +713,13 @@ class PadreViewSet(viewsets.ViewSet):
         alumno_id = request.query_params.get('alumno_id')
         materia_id = request.query_params.get('materia_id')
         gestion_curso_id = request.query_params.get('gestion_curso_id')
+        gestion_id = request.query_params.get('gestion_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+            if not ficha:
+                return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
+
             materia_inscrita = MateriasInscritasGestion.objects.get(
                 ficha=ficha,
                 materia_id=materia_id,
@@ -693,9 +741,13 @@ class PadreViewSet(viewsets.ViewSet):
         alumno_id = request.query_params.get('alumno_id')
         materia_id = request.query_params.get('materia_id')
         gestion_curso_id = request.query_params.get('gestion_curso_id')
+        gestion_id = request.query_params.get('gestion_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+            if not ficha:
+                return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
+
             asistencias = Asistencia.objects.filter(ficha=ficha, materia_id=materia_id, gestion_curso_id=gestion_curso_id)
             data = [{"fecha": a.fecha, "asistio": a.asistio} for a in asistencias]
             return Response(data)
@@ -707,9 +759,13 @@ class PadreViewSet(viewsets.ViewSet):
         alumno_id = request.query_params.get('alumno_id')
         materia_id = request.query_params.get('materia_id')
         gestion_curso_id = request.query_params.get('gestion_curso_id')
+        gestion_id = request.query_params.get('gestion_id')
 
         try:
-            ficha = FichaInscripcion.objects.get(matricula__alumno_id=alumno_id)
+            ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+            if not ficha:
+                return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
+
             participaciones = Participacion.objects.filter(ficha=ficha, materia_id=materia_id, gestion_curso_id=gestion_curso_id)
             data = [{"fecha": p.fecha, "descripcion": p.descripcion} for p in participaciones]
             return Response(data)
@@ -727,9 +783,17 @@ class PadreViewSet(viewsets.ViewSet):
         suma_promedios = 0
         total_hijos_con_notas = 0
 
+        gestion_id = request.query_params.get('gestion_id')
+        if not gestion_id:
+            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
+
         for hijo in hijos:
             try:
-                ficha = FichaInscripcion.objects.get(matricula__alumno=hijo)
+                ficha = self.obtener_ficha_por_gestion(hijo.id, gestion_id)
+                if not ficha:
+                    continue
+
+
                 materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
                 total_materias += materias_inscritas.count()
                 total_asistencias += Asistencia.objects.filter(ficha=ficha).count()
@@ -782,5 +846,16 @@ class PadreViewSet(viewsets.ViewSet):
             return Response({"error": "Alumno no encontrado"}, status=404)
         except Exception as e:
             return Response({"error": f"Error inesperado: {str(e)}"}, status=500)
+        
+    def obtener_ficha_por_gestion(self, alumno_id, gestion_id):
+        try:
+            fichas = FichaInscripcion.objects.filter(matricula__alumno_id=alumno_id)
+            for ficha in fichas:
+                if MateriasInscritasGestion.objects.filter(ficha=ficha, gestion_curso__gestion_id=gestion_id).exists():
+                    return ficha
+            return None
+        except:
+            return None
+
 
 
