@@ -88,6 +88,14 @@ class AsistenciaSerializer(serializers.Serializer):
     fecha = serializers.DateField()
     asistio = serializers.BooleanField()
 
+class AsistenciaQrSerializer(serializers.Serializer):
+    ficha = serializers.PrimaryKeyRelatedField(queryset=FichaInscripcion.objects.all())
+    materia_id = serializers.IntegerField()
+    gestion_curso_id = serializers.IntegerField()
+    fecha = serializers.DateField()
+    asistio = serializers.BooleanField()
+
+
 class ParticipacionSerializer(serializers.Serializer):
     alumno_id = serializers.IntegerField()
     materia_id = serializers.IntegerField()

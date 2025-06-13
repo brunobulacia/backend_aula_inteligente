@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from .models import FichaInscripcion, MateriasInscritasGestion, Nota, Asistencia, Participacion, Matricula
 from materias.models import MateriaGestionCurso
 from usuarios.models import Usuario, PadreAlumno
-from .serializers import FichaInscripcionSerializer, InscripcionSerializer, MateriasInscritasGestionSerializer, NotaSerializer, AsistenciaSerializer, ParticipacionSerializer, CalificacionSerializer, PrediccionRendimientoSerializer
+from .serializers import FichaInscripcionSerializer,AsistenciaQrSerializer,InscripcionSerializer, MateriasInscritasGestionSerializer, NotaSerializer, AsistenciaSerializer, ParticipacionSerializer, CalificacionSerializer, PrediccionRendimientoSerializer
 from usuarios.serializers import UsuarioSerializer
 from materias.serializers import MateriaGestionCursoSerializer
 from .ml.ml_utils import entrenar_modelo_rendimiento, predecir_rendimiento_grupal, predecir_rendimiento_individual
@@ -690,9 +690,8 @@ class AlumnoViewSet(viewsets.ViewSet):
             'asistio': True
         }
 
-        serializer = AsistenciaSerializer(data=asistencia_data)
+        serializer = AsistenciaQrSerializer(data=asistencia_data)
         if serializer.is_valid():
-            serializer.save()
             return Response({'mensaje': 'Asistencia registrada'})
         return Response(serializer.errors, status=400)
 
