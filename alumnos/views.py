@@ -657,43 +657,62 @@ class AlumnoViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'], url_path='registrar-asistencia-qr')
     def registrar_asistencia_qr(self, request):
+        print("=== Iniciando registro de asistencia con QR ===")
         user = request.user
         qr_data = request.data.get('qr_data')
 
         if not qr_data:
+            print("❌ No se recibió el campo qr_data")
             return Response({'error': 'Falta el campo qr_data'}, status=400)
 
+        print("📦 qr_data recibido:", qr_data)
+
         try:
-            decoded = json.loads(base64.b64decode(qr_data).decode())
+            decoded_str = base64.b64decode(qr_data).decode()
+            print("📤 Decodificado base64:", decoded_str)
+            decoded = json.loads(decoded_str)
             materia_id = decoded['materia_id']
-            gestion_curso_id = decoded['gestion_curso_id']
+            gestion_curso_id = decoded['gestion_curso']
             fecha = decoded['fecha']
+            print("✅ Decodificado JSON:", decoded)
         except Exception as e:
+            print("❌ Error al decodificar:", str(e))
             return Response({'error': 'QR inválido'}, status=400)
 
-        
+        print(f"🔎 Buscando ficha del alumno {user.id}...")
+
         fichas = FichaInscripcion.objects.filter(matricula__alumno=user)
         ficha = None
         for f in fichas:
-            if MateriasInscritasGestion.objects.filter(ficha=f, gestion_curso_id=gestion_curso_id, materia_id=materia_id).exists():
+            if MateriasInscritasGestion.objects.filter(
+                ficha=f, gestion_curso_id=gestion_curso_id, materia_id=materia_id
+            ).exists():
                 ficha = f
                 break
 
         if not ficha:
+            print("❌ No se encontró ficha válida")
             return Response({'error': 'No tenés ficha válida para esta materia y gestión'}, status=404)
 
         asistencia_data = {
             'ficha': ficha.id,
-            'materia_id': materia_id,
-            'gestion_curso_id': gestion_curso_id,
+            'materia': materia_id,
+            'gestion_curso': gestion_curso_id,
             'fecha': fecha,
             'asistio': True
         }
 
+        print("📨 Datos para registrar asistencia:", asistencia_data)
+
         serializer = AsistenciaQrSerializer(data=asistencia_data)
         if serializer.is_valid():
+            serializer.save()
+            print("✅ Asistencia registrada correctamente")
             return Response({'mensaje': 'Asistencia registrada'})
-        return Response(serializer.errors, status=400)
+        else:
+            print("❌ Errores del serializer:", serializer.errors)
+            return Response(serializer.errors, status=400)
+
 
 
 class EsPadre(BasePermission):
