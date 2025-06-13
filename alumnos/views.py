@@ -166,7 +166,15 @@ class ProfesorViewSet(viewsets.ViewSet):
         try:
             alumno = Usuario.objects.get(id=data['alumno_id'], tipo_usuario='alum')
             matricula = Matricula.objects.get(alumno=alumno)
-            ficha = FichaInscripcion.objects.get(matricula=matricula)
+            ficha = FichaInscripcion.objects.filter(
+                matricula=matricula,
+                materiasinscritasgestion__gestion_curso_id=data['gestion_curso'],
+                materiasinscritasgestion__materia_id=data['materia_id']
+            ).first()
+
+            if not ficha:
+                return Response({"error": "No se encontró la ficha del alumno para esa materia y gestión."}, status=404)
+
             materia_inscrita = MateriasInscritasGestion.objects.get(
                 ficha=ficha,
                 materia_id=data['materia_id'],
@@ -239,7 +247,14 @@ class ProfesorViewSet(viewsets.ViewSet):
         try:
             alumno = Usuario.objects.get(id=data['alumno_id'], tipo_usuario='alum')
             matricula = Matricula.objects.get(alumno=alumno)
-            ficha = FichaInscripcion.objects.get(matricula=matricula)
+            fichas = FichaInscripcion.objects.filter(matricula=matricula)
+            ficha = None
+            for f in fichas:
+                if MateriasInscritasGestion.objects.filter(ficha=f, gestion_curso_id=data['gestion_curso_id'], materia_id=data['materia_id']).exists():
+                    ficha = f
+                    break
+            if not ficha:
+                return Response({"error": "Alumno no está inscrito en esa materia en esta gestión."}, status=404)
         except Exception:
             return Response({"error": "Alumno no encontrado o no inscrito."}, status=404)
 
@@ -273,7 +288,14 @@ class ProfesorViewSet(viewsets.ViewSet):
         try:
             alumno = Usuario.objects.get(id=data['alumno_id'], tipo_usuario='alum')
             matricula = Matricula.objects.get(alumno=alumno)
-            ficha = FichaInscripcion.objects.get(matricula=matricula)
+            fichas = FichaInscripcion.objects.filter(matricula=matricula)
+            ficha = None
+            for f in fichas:
+                if MateriasInscritasGestion.objects.filter(ficha=f, gestion_curso_id=data['gestion_curso_id'], materia_id=data['materia_id']).exists():
+                    ficha = f
+                    break
+            if not ficha:
+                return Response({"error": "Alumno no está inscrito en esa materia en esta gestión."}, status=404)
         except Exception:
             return Response({"error": "Alumno no encontrado o no inscrito."}, status=404)
 
@@ -714,11 +736,10 @@ class PadreViewSet(viewsets.ViewSet):
         materia_id = request.query_params.get('materia_id')
         gestion_curso_id = request.query_params.get('gestion_curso_id')
         gestion_id = request.query_params.get('gestion_id')
-
+        ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+        if not ficha:
+            return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
         try:
-            ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
-            if not ficha:
-                return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
 
             materia_inscrita = MateriasInscritasGestion.objects.get(
                 ficha=ficha,
@@ -774,48 +795,30 @@ class PadreViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='dashboard')
     def dashboard(self, request):
-        padre = request.user
-        hijos = Usuario.objects.filter(padres__padre=padre)
-
-        total_materias = 0
-        total_asistencias = 0
-        total_participaciones = 0
-        suma_promedios = 0
-        total_hijos_con_notas = 0
-
+        alumno_id = request.query_params.get('alumno_id')
         gestion_id = request.query_params.get('gestion_id')
-        if not gestion_id:
-            return Response({"error": "Debés enviar el parámetro 'gestion_id'"}, status=400)
 
-        for hijo in hijos:
-            try:
-                ficha = self.obtener_ficha_por_gestion(hijo.id, gestion_id)
-                if not ficha:
-                    continue
+        if not alumno_id or not gestion_id:
+            return Response({"error": "Faltan parámetros"}, status=400)
 
+        ficha = self.obtener_ficha_por_gestion(alumno_id, gestion_id)
+        if not ficha:
+            return Response({"error": "No se encontró la ficha de inscripción para esa gestión."}, status=404)
 
-                materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
-                total_materias += materias_inscritas.count()
-                total_asistencias += Asistencia.objects.filter(ficha=ficha).count()
-                total_participaciones += Participacion.objects.filter(ficha=ficha).count()
+        total_materias = MateriasInscritasGestion.objects.filter(ficha=ficha).count()
+        total_asistencias = Asistencia.objects.filter(ficha=ficha).count()
+        total_participaciones = Participacion.objects.filter(ficha=ficha).count()
 
-                suma_hijo = 0
-                n_materias = 0
-                for ins in materias_inscritas:
-                    if ins.nota:
-                        n = ins.nota
-                        suma_hijo += (n.ser + n.saber + n.hacer + n.decidir + n.nota_final) / 5
-                        n_materias += 1
+        materias_inscritas = MateriasInscritasGestion.objects.filter(ficha=ficha)
+        suma = 0
+        n_materias = 0
+        for ins in materias_inscritas:
+            if ins.nota:
+                n = ins.nota
+                suma += (n.ser + n.saber + n.hacer + n.decidir + n.nota_final) / 5
+                n_materias += 1
 
-                if n_materias > 0:
-                    promedio_hijo = suma_hijo / n_materias
-                    suma_promedios += promedio_hijo
-                    total_hijos_con_notas += 1
-
-            except:
-                continue
-
-        promedio_general = round(suma_promedios / total_hijos_con_notas, 2) if total_hijos_con_notas > 0 else 0
+        promedio_general = round(suma / n_materias, 2) if n_materias > 0 else 0
 
         return Response({
             "total_materias": total_materias,
@@ -823,6 +826,37 @@ class PadreViewSet(viewsets.ViewSet):
             "total_participaciones": total_participaciones,
             "promedio_general": promedio_general
         })
+
+    @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
+    def predecir_rendimiento(self, request):
+        padre = request.user
+        alumno_id = request.query_params.get('alumno_id')
+        gestion_id = request.query_params.get('gestion_id')
+
+        if not alumno_id or not gestion_id:
+            return Response({"error": "Faltan parámetros requeridos"}, status=400)
+
+        try:
+            alumno = Usuario.objects.get(id=alumno_id, tipo_usuario='alum')
+            if not PadreAlumno.objects.filter(padre=padre, alumno=alumno).exists():
+                return Response({"error": "Este alumno no está vinculado a tu cuenta"}, status=403)
+
+            resultados = predecir_rendimiento_individual(alumno, gestion_id=int(gestion_id))
+            return Response(resultados)
+
+        except Usuario.DoesNotExist:
+            return Response({"error": "Alumno no encontrado"}, status=404)
+        except Exception as e:
+            return Response({"error": f"Error inesperado: {str(e)}"}, status=500)
+
+    def obtener_ficha_por_gestion(self, alumno_id, gestion_id):
+        try:
+            return FichaInscripcion.objects.filter(
+                matricula__alumno_id=alumno_id,
+                materiasinscritasgestion__gestion_curso__gestion_id=gestion_id
+            ).distinct().first()
+        except:
+            return None
 
     @action(detail=False, methods=['get'], url_path='predecir-rendimiento')
     def predecir_rendimiento(self, request):
@@ -849,13 +883,13 @@ class PadreViewSet(viewsets.ViewSet):
         
     def obtener_ficha_por_gestion(self, alumno_id, gestion_id):
         try:
-            fichas = FichaInscripcion.objects.filter(matricula__alumno_id=alumno_id)
-            for ficha in fichas:
-                if MateriasInscritasGestion.objects.filter(ficha=ficha, gestion_curso__gestion_id=gestion_id).exists():
-                    return ficha
-            return None
+            return FichaInscripcion.objects.filter(
+                matricula__alumno_id=alumno_id,
+                materiasinscritasgestion__gestion_curso__gestion_id=gestion_id
+            ).distinct().first()
         except:
-            return None
+         return None
+
 
 
 
