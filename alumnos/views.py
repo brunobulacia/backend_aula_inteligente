@@ -672,7 +672,7 @@ class AlumnoViewSet(viewsets.ViewSet):
             print("📤 Decodificado base64:", decoded_str)
             decoded = json.loads(decoded_str)
             materia_id = decoded['materia_id']
-            gestion_curso_id = decoded['gestion_curso']
+            gestion_curso_id = decoded['gestion_curso_id']
             fecha = decoded['fecha']
             print("✅ Decodificado JSON:", decoded)
         except Exception as e:
